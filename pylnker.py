@@ -165,12 +165,16 @@ def add_info(f, loc):
         return None, now_loc
 
 
+class FormatException(Exception):
+    pass
+
+    
 def parse_lnk(f):
 
     try:
         assert_lnk_signature(f)
     except Exception as e:
-        return "[!] Exception: " + str(e)
+        raise FormatException(str(e))
 
     output_obj = {"errors": []}
 
