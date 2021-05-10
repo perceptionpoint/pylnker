@@ -371,19 +371,19 @@ def parse_lnk(f):
 
     if flags[3] == "1":
         addnl_text, next_loc = add_info(f, next_loc)
-        output_obj["relative_path"] = str(addnl_text.decode('utf-16le', errors='ignore'))
+        output_obj["relative_path"] = addnl_text.decode('utf-16le', errors='ignore')
 
     if flags[4] == "1":
         addnl_text, next_loc = add_info(f, next_loc)
-        output_obj["working_dir"] = str(addnl_text)
+        output_obj["working_dir"] = addnl_text.decode('utf-16le', errors='ignore')
 
     if flags[5] == "1":
         addnl_text, next_loc = add_info(f, next_loc)
-        output_obj["command_line"] = str(addnl_text.decode('utf-16le', errors='ignore'))
+        output_obj["command_line"] = addnl_text.decode('utf-16le', errors='ignore')
 
     if flags[6] == "1":
         addnl_text, next_loc = add_info(f, next_loc)
-        output_obj["icon_filename"] = str(addnl_text.decode('utf-16le', errors='ignore'))
+        output_obj["icon_filename"] = addnl_text.decode('utf-16le', errors='ignore')
 
     for k, v in output_obj.iteritems():
         if type(output_obj[k]) == str:
