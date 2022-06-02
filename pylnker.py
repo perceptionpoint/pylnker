@@ -10,6 +10,7 @@
 #   - Bug fixes for attribute parsing & unicode strings
 import sys, datetime, binascii
 
+import six
 from six.moves import xrange
 
 # HASH of flag attributes
@@ -82,9 +83,9 @@ def assert_lnk_signature(f):
     f.seek(0)
     sig = f.read(4)
     guid = f.read(16)
-    if sig != 'L\x00\x00\x00':
+    if sig != b'L\x00\x00\x00':
         raise Exception("This is not a .lnk file.")
-    if guid != '\x01\x14\x02\x00\x00\x00\x00\x00\xc0\x00\x00\x00\x00\x00\x00F':
+    if guid != b'\x01\x14\x02\x00\x00\x00\x00\x00\xc0\x00\x00\x00\x00\x00\x00F':
         raise Exception("Cannot read this kind of .lnk file.")
 
 
@@ -97,7 +98,12 @@ def read_unpack_bin(f, loc, count):
     result = ""
 
     for b in raw:
-        result += ("{0:08b}".format(ord(b)))[::-1]
+        if not isinstance(b, int):
+            # Python2 each byte in a binary object,
+            # but on Python3 we get the int number directly
+            b = ord(b)
+
+        result += ("{0:08b}".format(b))[::-1]
 
     return result
 
@@ -117,9 +123,11 @@ def read_unpack(f, loc, count):
     f.seek(loc)
 
     raw = f.read(count)
-    result = ""
+    result = b""
 
     for b in raw:
+        if isinstance(b, int):
+            b = six.int2byte(b)
         result += binascii.hexlify(b)
 
     return result
@@ -130,10 +138,10 @@ def read_null_term(f, loc):
     # jump to the start position
     f.seek(loc)
 
-    result = ""
+    result = b""
     b = f.read(1)
 
-    while b != "\x00":
+    while b != b"\x00":
         result += str(b)
         b = f.read(1)
 
@@ -142,7 +150,7 @@ def read_null_term(f, loc):
 
 # adapted from pylink.py
 def ms_time_to_unix_str(windows_time):
-    time_str = ''
+    time_str = b''
     try:
         unix_time = windows_time / 10000000.0 - 11644473600
         time_str = str(datetime.datetime.fromtimestamp(unix_time))
