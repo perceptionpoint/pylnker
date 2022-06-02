@@ -8,8 +8,9 @@
 #  Edits by YK
 #   - Added support for blank/invalid timestamps
 #   - Bug fixes for attribute parsing & unicode strings
-
 import sys, datetime, binascii
+
+from six.moves import xrange
 
 # HASH of flag attributes
 flag_hash = [["", ""] for _ in xrange(7)]
