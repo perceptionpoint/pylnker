@@ -9,6 +9,7 @@
 #   - Added support for blank/invalid timestamps
 #   - Bug fixes for attribute parsing & unicode strings
 import sys, datetime, binascii
+import typing
 
 import six
 from six.moves import xrange
@@ -76,15 +77,28 @@ vol_type_hash[6] = "RAM Drive"
 def reverse_hex(HEXDATE):
     hexVals = [HEXDATE[i:i + 2] for i in xrange(0, 16, 2)]
     reversedHexVals = hexVals[::-1]
-    return ''.join(reversedHexVals)
+    return b''.join(reversedHexVals)
+
+
+def validate(t, v):
+    if not isinstance(v, t):
+        raise ValueError("Variable '{}' must be {} type".format(v, t))
+
+def validate_binary(v):
+    return validate(six.binary_type, v)
 
 
 def assert_lnk_signature(f):
+    # type: (typing.BinaryIO) -> None
     f.seek(0)
     sig = f.read(4)
+    validate_binary(sig)
+
     guid = f.read(16)
+
     if sig != b'L\x00\x00\x00':
         raise Exception("This is not a .lnk file.")
+
     if guid != b'\x01\x14\x02\x00\x00\x00\x00\x00\xc0\x00\x00\x00\x00\x00\x00F':
         raise Exception("Cannot read this kind of .lnk file.")
 
@@ -138,11 +152,11 @@ def read_null_term(f, loc):
     # jump to the start position
     f.seek(loc)
 
-    result = b""
+    result = ""
     b = f.read(1)
 
     while b != b"\x00":
-        result += str(b)
+        result += b.decode("utf8")
         b = f.read(1)
 
     return result
@@ -302,13 +316,13 @@ def parse_lnk(f):
         # Volume Serial Number
         curr_tab_offset = loc_vol_tab_off + struct_start + 8
         vol_serial = reverse_hex(read_unpack(f, curr_tab_offset, 4))
-        output_obj["volume_serial"] = vol_serial
+        output_obj["volume_serial"] = vol_serial.decode("utf8")
 
         # Get the location, and length of the volume label
         vol_label_loc = loc_vol_tab_off + struct_start + 16
         vol_label_len = local_vol_tab_end - vol_label_loc
-        vol_label = read_unpack_ascii(f, vol_label_loc, vol_label_len);
-        output_obj["volume_label"] = str(vol_label)
+        vol_label = read_unpack_ascii(f, vol_label_loc, vol_label_len)
+        output_obj["volume_label"] = vol_label
 
         # ------------------------------------------------------------------------
         # This is the offset of the base path info within the
@@ -363,7 +377,7 @@ def parse_lnk(f):
     # Remaining path
     rem_path_off_hex = reverse_hex(read_unpack(f, rem_path_off, 4))
     rem_path_off = struct_start + int(rem_path_off_hex, 16)
-    rem_data = read_null_term(f, rem_path_off);
+    rem_data = read_null_term(f, rem_path_off)
     output_obj["remaining_path"] = rem_data
 
     # ------------------------------------------------------------------------
@@ -394,9 +408,9 @@ def parse_lnk(f):
         addnl_text, next_loc = add_info(f, next_loc)
         output_obj["icon_filename"] = addnl_text.decode('utf-16le', errors='ignore')
 
-    for k, v in output_obj.iteritems():
-        if type(output_obj[k]) == str:
-            output_obj[k] = output_obj[k].replace("\x00", "")
+    for k, v in six.iteritems(output_obj):
+        if isinstance(v, six.binary_type):
+            output_obj[k] = v.replace(b"\x00", b"")
     return output_obj
 
 
