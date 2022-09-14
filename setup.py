@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='pylnker',
-    version='1.2+pp',
+    version='1.5+pp',
     packages=[''],
     url='https://github.com/perceptionpoint/pylnker',
     license='GNU General Public License v2.0',
