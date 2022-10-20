@@ -8,8 +8,11 @@
 #  Edits by YK
 #   - Added support for blank/invalid timestamps
 #   - Bug fixes for attribute parsing & unicode strings
-
 import sys, datetime, binascii
+import typing
+
+import six
+from six.moves import xrange
 
 # HASH of flag attributes
 flag_hash = [["", ""] for _ in xrange(7)]
@@ -74,16 +77,29 @@ vol_type_hash[6] = "RAM Drive"
 def reverse_hex(HEXDATE):
     hexVals = [HEXDATE[i:i + 2] for i in xrange(0, 16, 2)]
     reversedHexVals = hexVals[::-1]
-    return ''.join(reversedHexVals)
+    return b''.join(reversedHexVals)
+
+
+def validate(t, v):
+    if not isinstance(v, t):
+        raise ValueError("Variable '{}' must be {} type".format(v, t))
+
+def validate_binary(v):
+    return validate(six.binary_type, v)
 
 
 def assert_lnk_signature(f):
+    # type: (typing.BinaryIO) -> None
     f.seek(0)
     sig = f.read(4)
+    validate_binary(sig)
+
     guid = f.read(16)
-    if sig != 'L\x00\x00\x00':
+
+    if sig != b'L\x00\x00\x00':
         raise Exception("This is not a .lnk file.")
-    if guid != '\x01\x14\x02\x00\x00\x00\x00\x00\xc0\x00\x00\x00\x00\x00\x00F':
+
+    if guid != b'\x01\x14\x02\x00\x00\x00\x00\x00\xc0\x00\x00\x00\x00\x00\x00F':
         raise Exception("Cannot read this kind of .lnk file.")
 
 
@@ -96,7 +112,12 @@ def read_unpack_bin(f, loc, count):
     result = ""
 
     for b in raw:
-        result += ("{0:08b}".format(ord(b)))[::-1]
+        if not isinstance(b, int):
+            # Python2 each byte in a binary object,
+            # but on Python3 we get the int number directly
+            b = ord(b)
+
+        result += ("{0:08b}".format(b))[::-1]
 
     return result
 
@@ -116,9 +137,11 @@ def read_unpack(f, loc, count):
     f.seek(loc)
 
     raw = f.read(count)
-    result = ""
+    result = b""
 
     for b in raw:
+        if isinstance(b, int):
+            b = six.int2byte(b)
         result += binascii.hexlify(b)
 
     return result
@@ -132,8 +155,8 @@ def read_null_term(f, loc):
     result = ""
     b = f.read(1)
 
-    while b != "\x00":
-        result += str(b)
+    while b != b"\x00":
+        result += b.decode("utf8")
         b = f.read(1)
 
     return result
@@ -141,7 +164,7 @@ def read_null_term(f, loc):
 
 # adapted from pylink.py
 def ms_time_to_unix_str(windows_time):
-    time_str = ''
+    time_str = b''
     try:
         unix_time = windows_time / 10000000.0 - 11644473600
         time_str = str(datetime.datetime.fromtimestamp(unix_time))
@@ -293,13 +316,13 @@ def parse_lnk(f):
         # Volume Serial Number
         curr_tab_offset = loc_vol_tab_off + struct_start + 8
         vol_serial = reverse_hex(read_unpack(f, curr_tab_offset, 4))
-        output_obj["volume_serial"] = vol_serial
+        output_obj["volume_serial"] = vol_serial.decode("utf8")
 
         # Get the location, and length of the volume label
         vol_label_loc = loc_vol_tab_off + struct_start + 16
         vol_label_len = local_vol_tab_end - vol_label_loc
-        vol_label = read_unpack_ascii(f, vol_label_loc, vol_label_len);
-        output_obj["volume_label"] = str(vol_label)
+        vol_label = read_unpack_ascii(f, vol_label_loc, vol_label_len)
+        output_obj["volume_label"] = vol_label
 
         # ------------------------------------------------------------------------
         # This is the offset of the base path info within the
@@ -354,7 +377,7 @@ def parse_lnk(f):
     # Remaining path
     rem_path_off_hex = reverse_hex(read_unpack(f, rem_path_off, 4))
     rem_path_off = struct_start + int(rem_path_off_hex, 16)
-    rem_data = read_null_term(f, rem_path_off);
+    rem_data = read_null_term(f, rem_path_off)
     output_obj["remaining_path"] = rem_data
 
     # ------------------------------------------------------------------------
@@ -385,9 +408,9 @@ def parse_lnk(f):
         addnl_text, next_loc = add_info(f, next_loc)
         output_obj["icon_filename"] = addnl_text.decode('utf-16le', errors='ignore')
 
-    for k, v in output_obj.iteritems():
-        if type(output_obj[k]) == str:
-            output_obj[k] = output_obj[k].replace("\x00", "")
+    for k, v in six.iteritems(output_obj):
+        if isinstance(v, six.binary_type):
+            output_obj[k] = v.replace(b"\x00", b"")
     return output_obj
 
 
