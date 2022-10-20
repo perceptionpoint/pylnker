@@ -1,0 +1,7 @@
+.tool-versions
+__pycache__/
+.idea
+build
+dist
+*.egg-info
+*.pyc
